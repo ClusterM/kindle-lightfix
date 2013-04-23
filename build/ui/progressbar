@@ -1,0 +1,62 @@
+#
+# Before calling any functions, requires that the following
+# have already been defined/sourced in the calling script:
+#
+# SCALING   - Number of times an individual file will be processed
+# FILECOUNT - Number of files that will have operations performed on them
+#
+# For example, most updates set SCALING=3 because a patched file is
+# processed like so: (patch to tmp, copy to root file system, verify
+# version on root filesystem).  Scaling can change depending on options
+# passed during update generation.
+#
+# Alternatively, if you know the exact number of times that you'll be
+# calling "update_percent_complete_scaled 1", the values could be set
+# like so:
+#
+# SCALING=1
+# FILECOUNT=NO_OF_UPDATE_CALLS
+#
+#
+# Also requires that the following have been sourced:
+# * "gui abstraction" - blanket or eips
+#
+# NOTE: There's no cleanup of PROG_COMPLETE since this is solely tmpfs
+# on device and is expected to be rebooted immediately after execution.
+
+SCALING=1
+FILECOUNT=1
+PROG_COMPLETE=$(mktemp)
+_COMPLETE_COUNT=0
+_CUR_PERCENT_COMPLETE=0
+
+update_percent_complete_scaled()
+{
+    local x=$(printf "%d" $1 2>/dev/null)
+    [ -z ${x} ] && x=0
+    _COMPLETE_COUNT=$((${_COMPLETE_COUNT} + $x))
+#    f_log D ${LOG_DOMAIN} prog-complete "complete=${_COMPLETE_COUNT},filecount=${FILECOUNT},scaling=${SCALING}" ""
+
+    if [ ${_COMPLETE_COUNT} -lt 0 ]; then
+        _COMPLETE_COUNT=0
+    elif [ ${_COMPLETE_COUNT} -gt $((${SCALING} * ${FILECOUNT})) ]; then
+        _COMPLETE_COUNT=$((${SCALING} * ${FILECOUNT}))
+    fi
+
+    local _PROGRESS_PERCENT=$(($((${_COMPLETE_COUNT} * 100)) / $((${SCALING} * ${FILECOUNT})) ))
+
+    if [ ${_CUR_PERCENT_COMPLETE} -lt ${_PROGRESS_PERCENT} ]; then
+        set_percent_complete ${_PROGRESS_PERCENT}
+        _CUR_PERCENT_COMPLETE=${_PROGRESS_PERCENT}
+    fi
+}
+
+update_percent_complete_from_pipe()
+{
+    local dummy
+    while read dummy; do
+        echo "${dummy}"
+        [ ! -d "/${dummy}" ] && update_percent_complete_scaled 1
+    done
+    echo "export _COMPLETE_COUNT=${_COMPLETE_COUNT}" > ${PROG_COMPLETE}
+}

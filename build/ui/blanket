@@ -1,0 +1,176 @@
+#
+# Optional Setting:
+#
+# LOG_DOMAIN - The domain that logging statements will go under.  If unset, this will default
+#              to "ota_install"
+#
+# Requires that the following have been sourced:
+# * /etc/upstart/functions
+#
+
+[ -z ${LOG_DOMAIN} ] && LOG_DOMAIN="ota_install"
+
+export _BLANKET_PERCENT_COMPLETE=0
+
+blanket()
+{
+    local BLANKET=com.lab126.blanket
+    local OTAMODULE="${BLANKET}.ota"
+    local RES=
+
+    if [ "${1}" != "isloaded" ]; then
+        if ! blanket isloaded ; then
+            case "${1}" in
+                progress|success|error|fail|end)
+                    f_log W ${LOG_DOMAIN} guisetup "blanket=unloaded" "blanket not loaded - $@ not executing"
+                    return 1
+                    ;;
+                begin)
+                    # Load the OTA module in Blanket and display the splash screen.
+                    lipc-set-prop $BLANKET load ota
+                    RES=$?
+                    if [ ${RES} -ne 0 ]; then
+                        f_log W ${LOG_DOMAIN} guiload "load=ota" "unable to load ota blanket module"
+                        return ${RES}
+                    fi
+
+                    lipc-send-event $OTAMODULE otaSplashInit
+                    RES=$?
+                    if [ ${RES} -ne 0 ]; then
+                        f_log W ${LOG_DOMAIN} guiinit "init=ota" "unable to send init event to ota blanket module"
+                        return ${RES}
+                    fi
+                    return 0
+                    ;;
+                *)
+                    ;;
+            esac
+        fi
+    fi
+
+    case "${1}" in
+        progress)
+            # Update the progress indicator in the OTA splash screen.
+            lipc-send-event $OTAMODULE otaSplashProgress -i ${3}
+            RES=$?
+            if [ ${RES} -eq 0 ]; then
+                f_log D ${LOG_DOMAIN} guiprogress "progress=${3}" "update progress indicator"
+            else
+                f_log W ${LOG_DOMAIN} guiprogress "progress=${3},status=fail" "update progress indicator"
+            fi
+            ;;
+        success)
+            # Display a successful installation in the OTA splash screen.
+            lipc-send-event $OTAMODULE otaSplashSuccess
+            RES=$?
+            if [ ${RES} -eq 0 ]; then
+                f_log D ${LOG_DOMAIN} guisuccess "" "display success screen"
+            else
+                f_log W ${LOG_DOMAIN} guisuccess "status=fail" "display success screen"
+            fi
+            ;;
+        error|fail)
+            # Display an error and error string.
+            lipc-send-event $OTAMODULE otaSplashError -s "${3}"
+            RES=$?
+            if [ ${RES} -eq 0 ]; then
+                f_log D ${LOG_DOMAIN} guierror "" "display error screen : ${3}"
+            else
+                f_log W ${LOG_DOMAIN} guierror "status=fail" "display error screen : ${3}"
+            fi
+            ;;
+        end)
+            # Remove the splash screen and unload the OTA module from Blanket.
+            lipc-send-event $OTAMODULE otaSplashCleanup
+            RES=$?
+            if [ ${RES} -eq 0 ]; then
+                f_log D ${LOG_DOMAIN} guicleanup "" "cleanup ota module"
+            else
+                f_log W ${LOG_DOMAIN} guicleanup "status=fail" "cleanup ota module"
+            fi
+            lipc-set-prop $BLANKET unload ota
+            RES=$?
+            if [ ${RES} -eq 0 ]; then
+                f_log D ${LOG_DOMAIN} guiunload "" "unload blanket ota module"
+            else
+                f_log W ${LOG_DOMAIN} guiunload "status=fail" "unload blanket ota module"
+            fi
+            ;;
+        isloaded)
+            lipc-get-prop $BLANKET load | grep -q '\bota\b'
+            return $?
+            ;;
+        *) ;;
+    esac
+}
+
+display_error_code()
+{
+    blanket error -i ${1#U}
+}
+
+display_stage_data()
+{
+    local xpos=48
+    local ypos=38
+    local lpad=$(( $xpos - $(expr length "${1}") ))
+    local lbuf=$(printf "%${lpad}s")
+    eips 1 $ypos "${lbuf}${1}"
+}
+
+display_failure_screen()
+{
+    display_error_code ${1:-U001}
+}
+
+display_success_screen()
+{
+    blanket success
+}
+
+display_update_screen()
+{
+    blanket begin
+    blanket progress -i 0
+}
+
+update_percent_complete()
+{
+    local x=$(printf "%d" $1 2>/dev/null)
+    [ -z ${x} ] && x=0
+
+    # Even though the underlying progressbar code doesn't support
+    # going forwards & backwards, allow it here
+    if [ ${x} -ne 0 ]; then
+        _BLANKET_PERCENT_COMPLETE=$((${_BLANKET_PERCENT_COMPLETE} + $x))
+        __check_bounds
+        blanket progress -i ${_BLANKET_PERCENT_COMPLETE}
+    fi
+}
+
+reset_progressbar()
+{
+    _BLANKET_PERCENT_COMPLETE=0
+    blanket end
+    [ $# -eq 0 ] && display_update_screen
+}
+
+set_percent_complete()
+{
+    local x=${_BLANKET_PERCENT_COMPLETE}
+    _BLANKET_PERCENT_COMPLETE=$(printf "%d" ${1} 2>/dev/null)
+    [ -z ${_BLANKET_PERCENT_COMPLETE} ] && _BLANKET_PERCENT_COMPLETE=0
+    __check_bounds
+    if [ ${x} -ne ${_BLANKET_PERCENT_COMPLETE} ]; then
+        blanket progress -i ${1}
+    fi
+}
+
+__check_bounds()
+{
+    if [ ${_BLANKET_PERCENT_COMPLETE} -gt 100 ]; then
+        _BLANKET_PERCENT_COMPLETE=100
+    elif [ ${_BLANKET_PERCENT_COMPLETE} -lt 0 ]; then
+        _BLANKET_PERCENT_COMPLETE=0
+    fi
+}
