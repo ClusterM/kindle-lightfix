@@ -31,7 +31,9 @@ logmsg()
 HACKNAME="${LOG_DOMAIN}"
 HACKVER="0.0.1"
 
-cat /etc/crontab/root | grep -v FrontLight > /etc/crontab/root
+temp_crontab=`mktemp`
+cat /etc/crontab/root | grep -v FrontLight > ${temp_crontab}
+mv ${temp_crontab} /etc/crontab/root
 update_percent_complete_scaled 1
 
 logmsg "Lightfix uninstalled"
