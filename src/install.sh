@@ -31,7 +31,9 @@ logmsg()
 HACKNAME="${LOG_DOMAIN}"
 HACKVER="0.0.1"
 
-cat /etc/crontab/root | grep -v FrontLight > /etc/crontab/root
+temp_crontab=`mktemp`
+cat /etc/crontab/root | grep -v FrontLight > ${temp_crontab}
+mv ${temp_crontab} /etc/crontab/root
 update_percent_complete_scaled 1
 
 echo "* * * * * if [ \"\`cat /sys/devices/system/fl_tps6116x/fl_tps6116x0/fl_intensity | /bin/grep Light\`\" == \"FrontLight(Intensity) = 1\" ] ; then echo -n 0 > /sys/devices/system/fl_tps6116x/fl_tps6116x0/fl_intensity ; fi" >> /etc/crontab/root
