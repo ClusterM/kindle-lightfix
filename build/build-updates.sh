@@ -3,7 +3,7 @@
 # $Id: build-updates.sh
 #
 
-HACKNAME="lightfix"
+HACKNAME="lightfix_hl"
 PKGNAME="${HACKNAME}"
 PKGVER="0.0.2"
 

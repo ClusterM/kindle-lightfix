@@ -10,7 +10,7 @@ copy it to the Kindle's USB drive's root, then launch it by going to [Menu] -> S
  Usage
 -------
 
-Just set brightness to lowest level and the frontlight will be turned off after one minute or less.
+Just set brightness to hightest level and the frontlight will be turned off after one minute or less.
 
 Alexey Avdyukhin, from Russia with love.
 mailto: clusterrr@clusterrr.com

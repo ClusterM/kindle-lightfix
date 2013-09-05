@@ -36,7 +36,7 @@ cat /etc/crontab/root | grep -v FrontLight > ${temp_crontab}
 mv ${temp_crontab} /etc/crontab/root
 update_percent_complete_scaled 1
 
-echo "* * * * * if [ \"\`cat /sys/devices/system/fl_tps6116x/fl_tps6116x0/fl_intensity | /bin/grep Light\`\" == \"FrontLight(Intensity) = 1\" ] ; then echo -n 0 > /sys/devices/system/fl_tps6116x/fl_tps6116x0/fl_intensity ; fi" >> /etc/crontab/root
+echo "* * * * * if [ \"\`cat /sys/devices/system/fl_tps6116x/fl_tps6116x0/fl_intensity | /bin/grep Light\`\" == \"FrontLight(Intensity) = 254\" ] ; then echo -n 0 > /sys/devices/system/fl_tps6116x/fl_tps6116x0/fl_intensity ; fi" >> /etc/crontab/root
 update_percent_complete_scaled 1
 
 logmsg "Lightfix installed"
