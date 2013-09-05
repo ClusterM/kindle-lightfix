@@ -5,7 +5,7 @@
 
 HACKNAME="lightfix"
 PKGNAME="${HACKNAME}"
-PKGVER="0.0.1"
+PKGVER="0.0.2"
 
 # We need kindletool (https://github.com/NiLuJe/KindleTool) in $PATH
 if (( $(kindletool version | wc -l) == 1 )) ; then
